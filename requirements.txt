@@ -1,0 +1,26 @@
+﻿# API and server
+fastapi==0.162.0
+uvicorn[standard]==0.54.0
+python-multipart==0.0.32
+
+# Authentication and security
+PyJWT==2.15.1
+pwdlib[argon2]==0.3.1
+
+# AI workflow
+langgraph==1.2.18
+
+# Machine Learning and data processing
+numpy==2.4.6
+pandas==2.2.3
+scikit-learn==1.9.1
+joblib==1.6.0
+shap==0.51.0
+
+# Validation and data visualisation
+pydantic==2.14.1
+matplotlib==3.11.2
+
+# Testing
+pytest==9.1.1
+httpx==0.28.1
