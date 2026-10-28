@@ -1,0 +1,32 @@
+@'
+# Environnement Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+
+# Cache et tests
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Secrets et configuration locale
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+secrets/
+
+# Logs et données d'audit locales
+*.log
+reports/human_review_audit.jsonl
+
+# Fichiers système
+.DS_Store
+Thumbs.db
+'@ | Set-Content -Encoding utf8 .gitignore
+# Fichiers de sauvegarde
+*.bak

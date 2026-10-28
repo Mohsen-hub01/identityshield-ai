@@ -1,0 +1,16 @@
+{
+    "model": "LogisticRegression",
+    "threshold": 0.6,
+    "test_evaluated": true,
+    "test_size": 1000,
+    "test_positive_count": 263,
+    "accuracy": 0.764,
+    "precision": 0.5574468085106383,
+    "recall": 0.49809885931558934,
+    "f1": 0.5261044176706827,
+    "average_precision": 0.5826832568153976,
+    "TN": 633,
+    "FP": 104,
+    "FN": 132,
+    "TP": 131
+}

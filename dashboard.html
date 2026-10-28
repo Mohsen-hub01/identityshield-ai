@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>IdentityShield AI</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 850px;
+            margin: 40px auto;
+            padding: 0 20px;
+            background: #f4f6f9;
+            color: #182230;
+        }
+        h1 { color: #173b70; }
+        section {
+            background: white;
+            padding: 22px;
+            margin: 20px 0;
+            border-radius: 12px;
+            border: 1px solid #dde3eb;
+        }
+        label { display: block; margin-top: 12px; }
+        input, button {
+            padding: 10px;
+            margin-top: 6px;
+            box-sizing: border-box;
+        }
+        input { width: 100%; }
+        button {
+            border: 0;
+            border-radius: 6px;
+            cursor: pointer;
+            background: #173b70;
+            color: white;
+            margin-right: 8px;
+        }
+        button:disabled { opacity: 0.5; cursor: wait; }
+        pre {
+            white-space: pre-wrap;
+            overflow-wrap: anywhere;
+            background: #f0f3f7;
+            padding: 14px;
+            border-radius: 8px;
+        }
+        #review { display: none; }
+        .note { color: #596579; font-size: 14px; }
+    </style>
+</head>
+<body>
+    <h1>IdentityShield AI</h1>
+    <p>Analyse des événements de connexion et revue humaine.</p>
+
+    <section>
+        <h2>1. Analyser une connexion</h2>
+
+        <label for="user">Identifiant utilisateur</label>
+        <input id="user" value="user_001">
+
+        <label for="country">Pays de connexion</label>
+        <input id="country" value="Maroc">
+
+        <label for="hour">Heure de connexion (0–23)</label>
+        <input id="hour" type="number" min="0" max="23" value="1">
+
+        <label for="failed">Tentatives échouées</label>
+        <input id="failed" type="number" min="0" max="100" value="5">
+
+        <p>
+            <button id="analyzeBtn" onclick="analyze()">Analyser</button>
+        </p>
+    </section>
+
+    <section>
+        <h2>2. Résultat de l'analyse</h2>
+        <pre id="result">Aucune analyse pour le moment.</pre>
+    </section>
+
+    <section id="review">
+        <h2>3. Décision de l'analyste</h2>
+        <p>
+            Examine les informations ci-dessus avant de choisir.
+            Cette décision ne bloque ni ne modifie automatiquement
+            un compte.
+        </p>
+
+        <button id="suspiciousBtn"
+                onclick="submitReview('confirm_suspicious')">
+            Confirmer comme suspect
+        </button>
+
+        <button id="legitimateBtn"
+                onclick="submitReview('mark_legitimate')">
+            Déclarer légitime
+        </button>
+    </section>
+
+    <p class="note">
+        Prototype utilisant des données synthétiques.
+        Ne pas exposer publiquement sans authentification et contrôles
+        de sécurité adaptés.
+    </p>
+
+    <script>
+        let analysisId = null;
+
+        async function analyze() {
+            const button = document.getElementById("analyzeBtn");
+            button.disabled = true;
+            document.getElementById("review").style.display = "none";
+            analysisId = null;
+
+            const payload = {
+                user_id: document.getElementById("user").value.trim(),
+                country: document.getElementById("country").value.trim(),
+                hour: Number(document.getElementById("hour").value),
+                failed_attempts: Number(
+                    document.getElementById("failed").value
+                )
+            };
+
+            try {
+                const response = await fetch("/analyze", {
+                    method: "POST",
+                    headers: {"Content-Type": "application/json"},
+                    body: JSON.stringify(payload)
+                });
+
+                const data = await response.json();
+                document.getElementById("result").textContent =
+                    JSON.stringify(data, null, 2);
+
+                if (response.ok &&
+                    data.status === "awaiting_human_review" &&
+                    data.analysis_id) {
+                    analysisId = data.analysis_id;
+                    document.getElementById("review").style.display = "block";
+                }
+            } catch (error) {
+                document.getElementById("result").textContent =
+                    "Erreur de connexion à l'API : " + error.message;
+            } finally {
+                button.disabled = false;
+            }
+        }
+
+        async function submitReview(decision) {
+            if (!analysisId) {
+                alert("Aucune analyse en attente de décision.");
+                return;
+            }
+
+            const buttons = [
+                document.getElementById("suspiciousBtn"),
+                document.getElementById("legitimateBtn")
+            ];
+            buttons.forEach(button => button.disabled = true);
+
+            try {
+                const response = await fetch("/review", {
+                    method: "POST",
+                    headers: {"Content-Type": "application/json"},
+                    body: JSON.stringify({
+                        analysis_id: analysisId,
+                        decision: decision
+                    })
+                });
+
+                const data = await response.json();
+                document.getElementById("result").textContent =
+                    JSON.stringify(data, null, 2);
+
+                if (response.ok) {
+                    analysisId = null;
+                    document.getElementById("review").style.display = "none";
+                }
+            } catch (error) {
+                document.getElementById("result").textContent =
+                    "Erreur lors de la revue : " + error.message;
+            } finally {
+                buttons.forEach(button => button.disabled = false);
+            }
+        }
+    </script>
+</body>
+</html>

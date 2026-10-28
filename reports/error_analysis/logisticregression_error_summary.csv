@@ -1,0 +1,5 @@
+error_type,hour,failed_attempts,new_device,ip_risk_score,impossible_travel,country_unusual,hour_unusual,suspect_probability
+False Negative,11.84,0.55,0.25,32.26,0.0,0.11,0.01,0.41
+False Positive,9.78,1.59,0.3,44.59,0.01,0.83,0.76,0.77
+True Negative,12.15,0.53,0.14,27.46,0.0,0.08,0.02,0.37
+True Positive,11.71,2.25,0.23,55.4,0.16,0.96,0.66,0.83
