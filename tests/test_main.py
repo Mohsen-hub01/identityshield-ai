@@ -1,4 +1,6 @@
 import os
+from datetime import timedelta
+
 
 # Clé de test locale, uniquement si aucune clé n'est déjà configurée.
 os.environ.setdefault(
@@ -313,3 +315,125 @@ def test_human_review_is_written_to_audit_log(monkeypatch, tmp_path):
     assert record["review_decision"] == "confirm_suspicious"
     assert record["recommended_action"] == "ESCALATE_AS_SUSPICIOUS"
     assert record["reviewer_identity"] is None
+
+
+
+# ============================================================
+# RBAC and JWT security tests
+# ============================================================
+
+def make_client_for_role(role: str) -> TestClient:
+    """Create a test client with a signed JWT for a given role."""
+    token = create_access_token(
+        data={
+            "sub": f"test_{role}",
+            "role": role,
+        }
+    )
+
+    return TestClient(
+        app,
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+
+def test_profiles_requires_authentication():
+    response = unauthenticated_client.get("/profiles")
+
+    assert response.status_code == 401
+
+
+def test_invalid_token_is_rejected():
+    invalid_client = TestClient(
+        app,
+        headers={"Authorization": "Bearer invalid-token"},
+    )
+
+    response = invalid_client.get("/profiles")
+
+    assert response.status_code == 401
+
+
+def test_expired_token_is_rejected():
+    expired_token = create_access_token(
+        data={"sub": "test_analyst", "role": "analyst"},
+        expires_delta=timedelta(seconds=-1),
+    )
+
+    expired_client = TestClient(
+        app,
+        headers={"Authorization": f"Bearer {expired_token}"},
+    )
+
+    response = expired_client.get("/profiles")
+
+    assert response.status_code == 401
+
+
+def test_all_roles_can_read_profiles():
+    for role in ("admin", "analyst", "viewer"):
+        role_client = make_client_for_role(role)
+
+        response = role_client.get("/profiles")
+
+        assert response.status_code == 200, (
+            f"Le rôle {role} devrait pouvoir consulter les profils."
+        )
+
+
+def test_viewer_cannot_analyze():
+    viewer_client = make_client_for_role("viewer")
+
+    response = viewer_client.post(
+        "/analyze",
+        json={
+            "user_id": USER_ID,
+            "country": "France",
+            "hour": 10,
+            "failed_attempts": 0,
+        },
+    )
+
+    assert response.status_code == 403
+
+
+def test_viewer_cannot_submit_review():
+    viewer_client = make_client_for_role("viewer")
+
+    response = viewer_client.post(
+        "/review",
+        json={
+            "analysis_id": "nonexistent-test-analysis",
+            "decision": "confirm_suspicious",
+        },
+    )
+
+    assert response.status_code == 403
+
+
+def test_unauthenticated_review_is_rejected():
+    response = unauthenticated_client.post(
+        "/review",
+        json={
+            "analysis_id": "nonexistent-test-analysis",
+            "decision": "confirm_suspicious",
+        },
+    )
+
+    assert response.status_code == 401
+
+
+def test_admin_can_analyze():
+    admin_client = make_client_for_role("admin")
+
+    response = admin_client.post(
+        "/analyze",
+        json={
+            "user_id": USER_ID,
+            "country": "France",
+            "hour": 10,
+            "failed_attempts": 0,
+        },
+    )
+
+    assert response.status_code == 200
