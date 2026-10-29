@@ -30,3 +30,6 @@ Thumbs.db
 '@ | Set-Content -Encoding utf8 .gitignore
 # Fichiers de sauvegarde
 *.bak
+
+# Local vector database
+storage/chroma_db/

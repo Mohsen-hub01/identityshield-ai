@@ -23,6 +23,9 @@ from users import authenticate_user
 from auth_security import create_access_token,decode_access_token,oauth2_scheme
 
 
+from openai import APIError
+from rag.generator import answer_question
+
 # ============================================================
 # 1. Configuration
 # ============================================================
@@ -236,6 +239,10 @@ class AccessEvent(BaseModel):
 class ReviewDecisionRequest(BaseModel):
     analysis_id: str = Field(min_length=1)
     decision: Literal["confirm_suspicious", "mark_legitimate"]
+
+class RAGQuestionRequest(BaseModel):
+    question: str = Field(min_length=3, max_length=2000)
+    top_k: int = Field(default=3, ge=1, le=5)
 
 
 # ============================================================
@@ -561,6 +568,42 @@ def analyze_access(
             "Les résultats ne prouvent pas qu'une attaque réelle a eu lieu."
         ),
     }
+
+@app.post("/ask")
+def ask_security_question(
+    request: RAGQuestionRequest,
+    current_user: dict[str, str] = Depends(
+        require_roles("admin", "analyst")
+    ),
+):
+    try:
+        return answer_question(
+            request.question,
+            top_k=request.top_k,
+        )
+
+    except RuntimeError as exc:
+        if "OPENROUTER_API_KEY" in str(exc):
+            raise HTTPException(
+                status_code=503,
+                detail="Le service de génération n'est pas configuré.",
+            ) from None
+
+        raise HTTPException(
+            status_code=503,
+            detail="Le service de génération est indisponible.",
+        ) from None
+
+    except APIError:
+        raise HTTPException(
+            status_code=502,
+            detail=(
+                "Le fournisseur LLM n'a pas traité la requête. "
+                "Vérifiez la configuration du modèle et la disponibilité "
+                "du service."
+            ),
+        ) from None
+
 
 
 @app.post("/review")
