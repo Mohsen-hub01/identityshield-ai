@@ -26,3 +26,6 @@ pytest==9.1.1
 httpx==0.28.1
 sentence-transformers==6.2.0
 chromadb==1.5.9
+mcp==2.3.0
+openai==3.40.0
+python-dotenv==1.2.4
