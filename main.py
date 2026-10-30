@@ -1,3 +1,4 @@
+import sys
 import json
 from datetime import datetime, timezone
 from pathlib import Path
@@ -157,8 +158,8 @@ if "classifier" not in model.named_steps:
 preprocessor = model.named_steps["preprocessor"]
 classifier = model.named_steps["classifier"]
 
-print(f"Modèle chargé : {MODEL_NAME}")
-print(f"Seuil de décision : {THRESHOLD:.2f}")
+print(f"Modèle chargé : {MODEL_NAME}", file=sys.stderr)
+print(f"Seuil de décision : {THRESHOLD:.2f}", file=sys.stderr)
 
 
 # ============================================================
@@ -188,7 +189,7 @@ USER_PROFILES = {
     for _, row in profiles_df.iterrows()
 }
 
-print(f"Profils chargés : {len(USER_PROFILES)}")
+print(f"Profils chargés : {len(USER_PROFILES)}", file=sys.stderr)
 
 
 # ============================================================

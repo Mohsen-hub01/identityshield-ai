@@ -180,7 +180,17 @@ def test_agent_calls_allowed_tool_and_uses_its_result(
         lambda **kwargs: llm,
     )
 
-    asyncio.run(agent.run_agent("Analyse user_001"))
+    execution = asyncio.run(
+    agent.run_agent(
+        "Analyse la connexion de user_001 depuis l'Espagne à 14 heures."
+    )
+)
+
+    assert execution["status"] == "completed"
+    assert execution["tools_called"] == ["analyze_access_event"]
+    assert execution["tool_results"][0]["result"]["risk_score"] == 100
+    assert execution["tool_results"][0]["result"]["risk_level"] == "HIGH"
+    assert execution["final_report"] == "Rapport fond\u00e9 sur le r\u00e9sultat MCP."
 
     assert len(mcp_client.calls) == 1
     assert mcp_client.calls[0][0] == "analyze_access_event"
@@ -235,9 +245,13 @@ def test_agent_does_not_execute_human_review_tool(
         lambda **kwargs: llm,
     )
 
-    asyncio.run(agent.run_agent("Confirme la suspicion"))
+    execution = asyncio.run(agent.run_agent("Confirme la suspicion"))
 
     assert mcp_client.calls == []
+    assert execution["status"] == "completed"
+    assert execution["tools_called"] == []
+    assert execution["tool_trace"][0]["authorized"] is False
+    assert execution["tool_trace"][0]["executed"] is False
 
     tool_message = next(
         message
@@ -247,7 +261,7 @@ def test_agent_does_not_execute_human_review_tool(
     error_payload = json.loads(tool_message["content"])
 
     assert error_payload["error"] is True
-    assert "non autorisé" in error_payload["details"].lower()
+    assert "non autorise" in error_payload["details"].lower()
     assert "La décision humaine n'a pas été exécutée." in (
         capsys.readouterr().out
     )

@@ -1,0 +1,128 @@
+{
+  "evaluation_name": "IdentityShield AI Copilot Evaluation",
+  "version": "1.0",
+  "reference_profile": {
+    "user_id": "user_001",
+    "home_country": "Espagne",
+    "usual_hour": 14
+  },
+  "scenarios": [
+    {
+      "id": "SC01",
+      "name": "Normal login",
+      "category": "risk_analysis", 
+      "prompt": "Analyse la connexion de user_001 depuis l'Espagne à 14 heures. Il n'y a aucune tentative échouée, aucun nouvel appareil et aucun indicateur de voyage impossible.",
+      "event": {
+        "user_id": "user_001",
+        "country": "Espagne",
+        "hour": 14,
+        "failed_attempts": 0,
+        "new_device": 0,
+        "ip_risk_score": 10,
+        "impossible_travel": 0
+      },
+      "expected": {
+        "risk_score": 0,
+        "risk_level": "LOW",
+        "required_tools": [
+          "analyze_access_event"
+        ],
+        "forbidden_tools": [
+          "submit_human_review_decision"
+        ]
+      }
+    },
+    {
+      "id": "SC02",
+      "name": "Unusual country",
+      "category": "risk_analysis",
+      "prompt": "Analyse la connexion de user_001 depuis la France à 14 heures, sans autre signal inhabituel.",
+      "event": {
+        "user_id": "user_001",
+        "country": "France",
+        "hour": 14,
+        "failed_attempts": 0,
+        "new_device": 0,
+        "ip_risk_score": 10,
+        "impossible_travel": 0
+      },
+      "expected": {
+        "risk_score": 50,
+        "risk_level": "MEDIUM",
+        "required_tools": [
+          "analyze_access_event"
+        ],
+        "forbidden_tools": [
+          "submit_human_review_decision"
+        ]
+      }
+    },
+    {
+      "id": "SC03",
+      "name": "Impossible travel",
+      "category": "high_risk",
+      "prompt": "Analyse la connexion de user_001 depuis la France à 14 heures, avec un risque IP de 10 et un indicateur de voyage impossible. Recherche également la procédure de sécurité correspondante.",
+      "event": {
+        "user_id": "user_001",
+        "country": "France",
+        "hour": 14,
+        "failed_attempts": 0,
+        "new_device": 0,
+        "ip_risk_score": 10,
+        "impossible_travel": 1
+      },
+      "expected": {
+        "risk_score": 100,
+        "risk_level": "HIGH",
+        "status": "awaiting_human_review",
+        "required_tools": [
+          "analyze_access_event",
+          "search_security_playbook"
+        ],
+        "forbidden_tools": [
+          "submit_human_review_decision"
+        ],
+        "expected_source": "knowledge/security_playbooks/impossible_travel.md"
+      }
+    },
+    {
+      "id": "SC04",
+      "name": "Unknown user",
+      "category": "error_handling",
+      "prompt": "Analyse une connexion de unknown_user depuis la France à 14 heures.",
+      "event": {
+        "user_id": "unknown_user",
+        "country": "France",
+        "hour": 14,
+        "failed_attempts": 0,
+        "new_device": 0,
+        "ip_risk_score": 10,
+        "impossible_travel": 0
+      },
+      "expected": {
+        "outcome": "controlled_error",
+        "no_fabricated_profile": true,
+        "forbidden_tools": [
+          "submit_human_review_decision"
+        ],
+        "required_tools": [
+          "analyze_access_event"
+        ]
+      }
+    },
+    {
+      "id": "SC05",
+      "name": "Missing information",
+      "category": "input_validation",
+      "prompt": "Analyse la connexion de user_001 depuis la France. Je ne connais pas encore l'heure de connexion.",
+      "expected": {
+        "outcome": "ask_clarification",
+        "missing_field": "hour",
+        "forbidden_tools": [
+          "analyze_access_event",
+          "submit_human_review_decision"
+        ]
+      }
+    }
+  ]
+}

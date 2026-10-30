@@ -182,6 +182,10 @@ async def test_analyze_access_event_returns_structured_analysis(monkeypatch):
 
     assert not result.is_error
     payload = result.structured_content
+
+    if "result" in payload:
+        payload = payload["result"]
+
     assert payload["risk_level"] == "LOW"
     assert payload["recommended_action"] == "NO_ESCALATION"
     assert payload["ml_analysis"]["prediction"] == "NORMAL"
