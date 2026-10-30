@@ -1,3 +1,4 @@
+import os
 import sys
 import json
 from datetime import datetime, timezone
@@ -9,7 +10,9 @@ import joblib
 import numpy as np
 import pandas as pd
 import shap
+from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.graph import END, START, StateGraph
@@ -18,6 +21,10 @@ from pydantic import BaseModel, Field
 
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.security import OAuth2PasswordRequestForm
+
+
+# Load local development configuration before auth_security reads SECRET_KEY.
+load_dotenv(Path(__file__).resolve().parent / ".env")
 
 from auth_security import create_access_token
 from users import authenticate_user
@@ -32,7 +39,12 @@ from rag.generator import answer_question
 # ============================================================
 
 BASE_DIR = Path(__file__).resolve().parent
-AUDIT_PATH = BASE_DIR / "reports" / "human_review_audit.jsonl"
+AUDIT_PATH = Path(
+    os.getenv(
+        "IDENTITYSHIELD_AUDIT_PATH",
+        str(BASE_DIR / "reports" / "human_review_audit.jsonl"),
+    )
+)
 FEATURES = [
     "country",
     "hour",
@@ -48,6 +60,19 @@ app = FastAPI(
     title="IdentityShield AI",
     description="Enterprise Identity Security Copilot",
     version="0.4.0",
+)
+
+# Local Vite development origins. Production deployments should serve the
+# frontend from the same origin or extend this list explicitly.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 def get_current_user(
@@ -240,6 +265,7 @@ class AccessEvent(BaseModel):
 class ReviewDecisionRequest(BaseModel):
     analysis_id: str = Field(min_length=1)
     decision: Literal["confirm_suspicious", "mark_legitimate"]
+    comment: str | None = Field(default=None, max_length=2000)
 
 class RAGQuestionRequest(BaseModel):
     question: str = Field(min_length=3, max_length=2000)
@@ -483,7 +509,12 @@ analysis_graph = workflow.compile(checkpointer=checkpointer)
 # 10. Human-review audit log
 # ============================================================
 
-def record_review_audit(analysis_id: str, result: dict) -> None:
+def record_review_audit(
+    analysis_id: str,
+    result: dict,
+    reviewer: str | None = None,
+    comment: str | None = None,
+) -> None:
     record = {
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "analysis_id": analysis_id,
@@ -492,8 +523,10 @@ def record_review_audit(analysis_id: str, result: dict) -> None:
         "risk_level": result["rule_result"]["risk_level"],
         "review_decision": result["review_decision"],
         "recommended_action": result["recommended_action"],
-        # Placeholder: no analyst authentication is implemented yet.
+        # Kept for compatibility with earlier audit consumers.
         "reviewer_identity": None,
+        "reviewer": reviewer,
+        "comment": comment,
     }
     AUDIT_PATH.parent.mkdir(parents=True, exist_ok=True)
     with AUDIT_PATH.open("a", encoding="utf-8") as file:
@@ -631,7 +664,12 @@ def submit_human_review(
             detail="Le workflow n'a pas terminé la revue humaine.",
         )
 
-    record_review_audit(request.analysis_id, result)
+    record_review_audit(
+        request.analysis_id,
+        result,
+        reviewer=current_user["username"],
+        comment=request.comment,
+    )
 
     return {
         "status": "review_completed",
@@ -641,6 +679,8 @@ def submit_human_review(
         "ml_analysis": result["ml_result"],
         "review_decision": result["review_decision"],
         "recommended_action": result["recommended_action"],
+        "reviewed_by": current_user["username"],
+        "comment": request.comment,
         "disclaimer": (
             "Modèle entraîné sur des données synthétiques. "
             "Les résultats ne prouvent pas qu'une attaque réelle a eu lieu."
@@ -651,3 +691,9 @@ def submit_human_review(
 @app.get("/dashboard", include_in_schema=False)
 def dashboard():
     return FileResponse(BASE_DIR / "dashboard.html")
+
+
+# Read-only experience API used by the React frontend.
+from ui_api import router as ui_router  # noqa: E402
+
+app.include_router(ui_router)

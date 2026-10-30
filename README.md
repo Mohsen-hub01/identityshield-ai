@@ -410,11 +410,29 @@ The API uses JWT authentication and role-based access control.
 | POST | `/review` | Submit review decision |
 | POST | `/ask` | Ask security assistant |
 | GET | `/dashboard` | HTML dashboard |
+| GET | `/api/ui/overview` | Dashboard metrics, insights and dataset provenance |
+| GET | `/api/ui/identities` and `/api/ui/identities/{user_id}` | Identity directory and detail |
+| GET | `/api/ui/events` | Filtered and paginated synthetic access events |
+| GET | `/api/ui/threat-graph` | Identity-country relationship graph |
+| GET | `/api/ui/analytics` | Risk, activity and model metrics |
+| GET | `/api/ui/playbooks` | Local playbook documents |
+| POST | `/api/ui/playbooks/search` | Semantic search with local keyword fallback |
+| GET | `/api/ui/review-audit` | Review history for admin and analyst roles |
 
 > [!WARNING]
 > The dashboard route is currently public. Keep the prototype local until this security gap is addressed.
 
 Interactive API documentation: `http://127.0.0.1:8000/docs`
+
+### Copilot frontend and backend experience
+
+The project includes a React and TypeScript frontend connected to the existing FastAPI backend. The Copilot interface uses the request and response contracts for `/ask`, `/analyze` and playbook search. Shared TypeScript types in `frontend/src/types/api.ts` describe these payloads, and the API client in `frontend/src/services/api/` handles authentication, requests and API errors.
+
+Copilot responses show returned playbook sources, analysis results, model explanations and human-review status. The interface does not claim that a request is streaming or that an MCP tool ran when the browser is using the RAG or analysis endpoints.
+
+The authenticated application also includes the security overview, identity directory, risk analysis, incident review, playbooks, threat intelligence and analytics. Charts and relationship visuals use API responses derived from the synthetic repository data and display provenance notes. The identity-country graph is interactive when WebGL is available and has a non-WebGL fallback.
+
+The browser Copilot currently calls `/ask`, `/analyze` and `/api/ui/playbooks/search`. The MCP agent described above is a separate backend component; it is not exposed as a browser Copilot endpoint.
 
 ---
 
@@ -513,6 +531,9 @@ flowchart TB
 | Language | Python 3.11 |
 | API | FastAPI |
 | Authentication | JWT, pwdlib |
+| Frontend | React, TypeScript, Vite |
+| Frontend data | TanStack Query, typed API contracts |
+| Frontend visualization | Recharts, Three.js, React Three Fiber, Drei |
 | Machine Learning | scikit-learn |
 | Explainability | SHAP |
 | Workflow | LangGraph |
@@ -532,21 +553,47 @@ git clone https://github.com/Mohsen-hub01/identityshield-ai.git
 cd identityshield-ai
 ```
 
-### 2. Create the virtual environment
+### Run the full application with Docker Compose
+
+Docker Desktop with Docker Compose is the recommended way to start the frontend and API together. Copy the example environment file, then replace the placeholder values with a long random secret and local account passwords. Add an OpenRouter API key if you want generated RAG answers.
+
+```powershell
+Copy-Item .env.example .env
+```
+
+Start both services from the repository root:
+
+```powershell
+docker compose up --build
+```
+
+Open the application at `http://localhost:8080`. The API documentation is available at `http://localhost:8080/docs`. Nginx serves the frontend and proxies API requests to FastAPI; the backend container is not directly published to the host.
+
+On first startup, the backend downloads the configured sentence-transformers embedding model and builds the playbook vector index. This requires network access and can take several minutes. The ChromaDB index, model cache and review audit file are stored in Docker volumes and persist across container restarts. To rebuild the index after changing playbooks, run:
+
+```powershell
+docker compose exec backend python -m rag.ingest
+```
+
+Stop the containers with `Ctrl+C`, or run `docker compose down` in another terminal. Keep `.env` private; it is excluded from the Docker build context and must never be committed.
+
+### Run locally without Docker
+
+### 1. Create the virtual environment
 
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 ```
 
-### 3. Install dependencies
+### 2. Install dependencies
 
 ```powershell
 python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 ```
 
-### 4. Configure environment variables
+### 3. Configure environment variables
 
 Create a local `.env` file using the variables required by your configuration.
 
@@ -568,7 +615,9 @@ OPENROUTER_API_KEY=your-openrouter-key
 
 Never commit `.env`, API keys, passwords or JWTs.
 
-### 5. Start the API
+### 4. Start the API
+
+In one terminal, from the repository root:
 
 ```powershell
 python -m uvicorn main:app --reload
@@ -577,6 +626,24 @@ python -m uvicorn main:app --reload
 Open:
 
 `http://127.0.0.1:8000/docs`
+
+### 5. Start the frontend
+
+In a second terminal:
+
+```powershell
+cd frontend
+npm install
+npm run dev
+```
+
+Open `http://localhost:5173`. The Vite development server proxies API requests to `http://127.0.0.1:8000`. Configure frontend accounts and passwords in the root `.env`; do not use placeholder credentials.
+
+To check a production frontend build:
+
+```powershell
+npm run build
+```
 
 ### 6. Run tests
 
@@ -613,6 +680,14 @@ identityshield-ai/
 │   ├── agent.py
 │   ├── server.py
 │   └── __init__.py
+│
+├── frontend/
+│   ├── src/
+│   │   ├── features/
+│   │   ├── services/
+│   │   └── types/
+│   ├── package.json
+│   └── vite.config.ts
 │
 ├── scripts/
 │   ├── data/
