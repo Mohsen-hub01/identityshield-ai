@@ -1,5 +1,6 @@
 services:
   backend:
+    image: ghcr.io/mohsen-hub01/identityshield-ai-backend:latest
     build:
       context: .
       dockerfile: Dockerfile
@@ -24,6 +25,7 @@ services:
       start_period: 120s
 
   frontend:
+    image: ghcr.io/mohsen-hub01/identityshield-ai-frontend:latest
     build:
       context: ./frontend
       dockerfile: Dockerfile

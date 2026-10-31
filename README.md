@@ -544,7 +544,42 @@ flowchart TB
 
 ---
 
-# 🚀 11. Installation
+# 🔄 11. CI/CD
+
+GitHub Actions runs the CI/CD workflow defined in `.github/workflows/ci-cd.yml`.
+
+### Continuous integration
+
+For pull requests and pushes to `main`, the workflow:
+
+1. Installs the backend dependencies with CPU-only PyTorch.
+2. Builds the local playbook index and runs the Python test suite.
+3. Installs frontend dependencies from the lockfile, type-checks TypeScript and builds the frontend.
+4. Builds both Docker images to verify the container definitions.
+
+Pull requests build the images but never publish them.
+
+### Continuous delivery
+
+After those checks pass, pushes to `main`, version tags matching `v*`, and manually started workflows publish the backend and frontend images to GitHub Container Registry (GHCR):
+
+- `ghcr.io/mohsen-hub01/identityshield-ai-backend`
+- `ghcr.io/mohsen-hub01/identityshield-ai-frontend`
+
+Images are tagged with the branch or version, the commit SHA, and `latest` for the default branch. The workflow publishes images; it does not deploy to a running server because no deployment host or credentials are configured in this repository.
+
+To run the published images with Docker Compose, first configure `.env` as described above. If the GHCR packages are private, authenticate with a GitHub token that has `read:packages` permission. Then pull and start the images without rebuilding:
+
+```powershell
+docker compose pull
+docker compose up -d --no-build
+```
+
+The compose file continues to support local builds with `docker compose up --build`.
+
+---
+
+# 🚀 12. Installation
 
 ### 1. Clone the repository
 
@@ -659,7 +694,7 @@ python -m identityshield_mcp.agent
 
 ---
 
-# 📁 12. Project Structure
+# 📁 13. Project Structure
 
 ```text
 identityshield-ai/
@@ -708,7 +743,7 @@ identityshield-ai/
 
 ---
 
-# ⚠️ 13. Limitations and Future Improvements
+# ⚠️ 14. Limitations and Future Improvements
 
 ```mermaid
 flowchart TD
